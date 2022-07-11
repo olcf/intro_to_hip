@@ -113,6 +113,9 @@ int main()
     hipErrorCheck( hipFree(d_B) );
     hipErrorCheck( hipFree(d_C) );
 
+    hipErrorCheck( hipEventDestroy(start) );
+    hipErrorCheck( hipEventDestroy(stop) );
+
     printf("\n-------------------------------\n");
     printf("__SUCCESS__\n");
     printf("-------------------------------\n");
