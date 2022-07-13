@@ -2,13 +2,13 @@
 #include <stdio.h>
 #include <omp.h>
 
-// Macro for checking errors in HIP API calls
-#define hipErrorCheck(call)                                                                 \
+// Macro for checking errors in GPU API calls
+#define gpuErrorCheck(call)                                                                 \
 do{                                                                                         \
-    hipError_t hipErr = call;                                                               \
-    if(hipSuccess != hipErr){                                                               \
-        printf("HIP Error - %s:%d: '%s'\n", __FILE__, __LINE__, hipGetErrorString(hipErr)); \
-        exit(0);                                                                            \
+    hipError_t gpuErr = call;                                                               \
+    if(hipSuccess != gpuErr){                                                               \
+        printf("GPU Error - %s:%d: '%s'\n", __FILE__, __LINE__, hipGetErrorString(gpuErr)); \
+        exit(1);                                                                            \
     }                                                                                       \
 }while(0)
 
@@ -50,12 +50,12 @@ int main()
     double *A_average_gpu = (double*)malloc(bytes);
 
     // Initialize the GPU
-    hipErrorCheck( hipFree(NULL) );
+    gpuErrorCheck( hipFree(NULL) );
 
     // Allocate memory for arrays d_A, d_A_average on device
     double *d_A, *d_A_average;
-    hipErrorCheck( hipMalloc(&d_A, bytes) );	
-    hipErrorCheck( hipMalloc(&d_A_average, bytes) );
+    gpuErrorCheck( hipMalloc(&d_A, bytes) );	
+    gpuErrorCheck( hipMalloc(&d_A_average, bytes) );
 
     // Fill host array A with random numbers on host
     for(int i=0; i<(N+2*stencil_radius); i++)
@@ -91,10 +91,10 @@ int main()
     cpu_compute_stop = omp_get_wtime();
 
     // Copy data from host array A to device array d_A
-    hipErrorCheck( hipMemcpy(d_A, A, bytes, hipMemcpyHostToDevice) );
+    gpuErrorCheck( hipMemcpy(d_A, A, bytes, hipMemcpyHostToDevice) );
 
     // Set execution configuration parameters
-    //      thr_per_blk: number of HIP threads per grid block
+    //      thr_per_blk: number of GPU threads per grid block
     //      blk_in_grid: number of blocks in grid
     int thr_per_blk = block_size;
     int blk_in_grid = ceil( float(N+2*stencil_radius) / thr_per_blk );
@@ -103,7 +103,7 @@ int main()
     hipLaunchKernelGGL(average_array_elements, blk_in_grid, thr_per_blk, 0, 0, d_A, d_A_average);
 
     // Copy data from device array d_A_average to host array A_average_gpu
-    hipErrorCheck( hipMemcpy(A_average_gpu, d_A_average, bytes, hipMemcpyDeviceToHost) );
+    gpuErrorCheck( hipMemcpy(A_average_gpu, d_A_average, bytes, hipMemcpyDeviceToHost) );
 
     // Stop timer for total time
     total_stop = omp_get_wtime();
@@ -117,7 +117,7 @@ int main()
             if( fabs(A_average_cpu[i] - A_average_gpu[i]) > tolerance )
             { 
                 printf("Error: value of A_average_gpu[%d] = %f instead of %f\n", i, A_average_gpu[i], A_average_cpu[i]);
-                exit(-1);
+                exit(1);
             }
         }
     }	
@@ -128,8 +128,8 @@ int main()
     free(A_average_gpu);
 
     // Free GPU memory
-    hipErrorCheck( hipFree(d_A) );
-    hipErrorCheck( hipFree(d_A_average) );
+    gpuErrorCheck( hipFree(d_A) );
+    gpuErrorCheck( hipFree(d_A_average) );
 
     printf("\n-------------------------------------\n");
     printf("__SUCCESS__\n");

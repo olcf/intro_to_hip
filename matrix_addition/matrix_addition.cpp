@@ -1,13 +1,13 @@
 #include "hip/hip_runtime.h"
 #include <stdio.h>
 
-// Macro for checking errors in HIP API calls
-#define hipErrorCheck(call)                                                                 \
+// Macro for checking errors in GPU API calls
+#define gpuErrorCheck(call)                                                                 \
 do{                                                                                         \
-    hipError_t hipErr = call;                                                               \
-    if(hipSuccess != hipErr){                                                               \
-        printf("HIP Error - %s:%d: '%s'\n", __FILE__, __LINE__, hipGetErrorString(hipErr)); \
-        exit(0);                                                                            \
+    hipError_t gpuErr = call;                                                               \
+    if(hipSuccess != gpuErr){                                                               \
+        printf("GPU Error - %s:%d: '%s'\n", __FILE__, __LINE__, hipGetErrorString(gpuErr)); \
+        exit(1);                                                                            \
     }                                                                                       \
 }while(0)
 
@@ -41,9 +41,9 @@ int main()
 
     // Allocate memory for arrays d_A, d_B, and d_C on device
     double *d_A, *d_B, *d_C;
-    hipErrorCheck( hipMalloc(&d_A, bytes) );
-    hipErrorCheck( hipMalloc(&d_B, bytes) );
-    hipErrorCheck( hipMalloc(&d_C, bytes) );
+    gpuErrorCheck( hipMalloc(&d_A, bytes) );
+    gpuErrorCheck( hipMalloc(&d_B, bytes) );
+    gpuErrorCheck( hipMalloc(&d_C, bytes) );
 
     // Initialize host arrays A, B, C
     for(int i=0; i<M; i++)
@@ -57,11 +57,11 @@ int main()
     }
 
     // Copy data from host arrays A and B to device arrays d_A and d_B
-    hipErrorCheck( hipMemcpy(d_A, A, bytes, hipMemcpyHostToDevice) );
-    hipErrorCheck( hipMemcpy(d_B, B, bytes, hipMemcpyHostToDevice) );
+    gpuErrorCheck( hipMemcpy(d_A, A, bytes, hipMemcpyHostToDevice) );
+    gpuErrorCheck( hipMemcpy(d_B, B, bytes, hipMemcpyHostToDevice) );
 
     // Set execution configuration parameters
-    // 		threads_per_block: number of HIP threads per grid block
+    // 		threads_per_block: number of GPU threads per grid block
     //		blocks_in_grid   : number of blocks in grid
     //		(These are c structs with 3 member variables x, y, x)
     dim3 threads_per_block( 16, 16, 1 );
@@ -70,20 +70,14 @@ int main()
     // Launch kernel
     hipLaunchKernelGGL(matrix_addition, blocks_in_grid, threads_per_block , 0, 0, d_A, d_B, d_C);
 
-    // Check for errors in kernel launch (e.g. invalid execution configuration paramters)
-    hipError_t hipErrSync  = hipGetLastError();
+    // Check for synchronous errors during kernel launch (e.g. invalid execution configuration paramters)
+    gpuErrorCheck( hipGetLastError() );
 
-    // Check for errors on the GPU after control is returned to CPU
-    hipError_t hipErrAsync = hipDeviceSynchronize();
-
-    if (hipErrSync != hipSuccess) 
-    { printf("HIP Error - %s:%d: '%s'\n", __FILE__, __LINE__, hipGetErrorString(hipErrSync)); exit(0); }
-
-    if (hipErrAsync != hipSuccess) 
-    { printf("HIP Error - %s:%d: '%s'\n", __FILE__, __LINE__, hipGetErrorString(hipErrAsync)); exit(0); }
+    // Check for asynchronous errors during GPU execution (after control is returned to CPU)
+    gpuErrorCheck( hipDeviceSynchronize() );
 
     // Copy data from device array d_C to host array C
-    hipErrorCheck( hipMemcpy(C, d_C, bytes, hipMemcpyDeviceToHost) );
+    gpuErrorCheck( hipMemcpy(C, d_C, bytes, hipMemcpyDeviceToHost) );
 
     // Verify results
     double tolerance = 1.0e-14;
@@ -99,9 +93,9 @@ int main()
     }
 
     // Free GPU memory
-    hipErrorCheck( hipFree(d_A) );
-    hipErrorCheck( hipFree(d_B) );
-    hipErrorCheck( hipFree(d_C) );
+    gpuErrorCheck( hipFree(d_A) );
+    gpuErrorCheck( hipFree(d_B) );
+    gpuErrorCheck( hipFree(d_C) );
 
     printf("\n--------------------------------\n");
     printf("__SUCCESS__\n");
