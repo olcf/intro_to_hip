@@ -1,0 +1,12 @@
+#!/bin/bash
+
+#BSUB -P PRJ123
+#BSUB -J elements_squared_time
+#BSUB -o elements_squared_time.%J
+#BSUB -nnodes 1
+#BSUB -W 10
+#BSUB -U HIPintro
+
+date
+
+jsrun -n1 -c1 -g1 -a1 ./square_array_elements
