@@ -9,4 +9,4 @@
 
 date
 
-jsrun -n1 -c1 -g1 -a1 ./average_array_elements_pinned
+OMP_NUM_THREADS=21 jsrun -n1 -c21 -bpacked:21 -g1 -a1 ./average_array_elements_pinned
