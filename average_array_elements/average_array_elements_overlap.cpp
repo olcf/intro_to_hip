@@ -15,22 +15,24 @@ do{                                                                             
 // Size of array
 #define N (64 * 1024 * 1024)
 
-#define stencil_size 7
+// Stencil values
 #define stencil_radius 3
+#define stencil_size (2 * stencil_radius + 1)
 
-#define block_size 128
+// Number of threads in each block
+#define threads_per_block 128
 
 // Kernel
 __global__ void average_array_elements(double *a, double *a_average)
 {
-    int id = blockDim.x * blockIdx.x + threadIdx.x;
+    int id = blockDim.x * blockIdx.x + threadIdx.x + stencil_radius;
 
     // If id is not in the halo...
-    if( (id >= stencil_radius) && (id < (stencil_radius + N)) ){
+    if( id < (N + stencil_radius) ){
 
         // Calculate sum of stencil elements
         double sum = 0.0;
-        for(int j=-stencil_radius; j<(stencil_radius + 1); j++){
+        for(int j=-stencil_radius; j<=stencil_radius; j++){
             sum = sum + a[id + j];
         }
 
@@ -58,6 +60,12 @@ int main()
     gpuErrorCheck( hipMalloc(&d_A, bytes) );	
     gpuErrorCheck( hipMalloc(&d_A_average, bytes) );
 
+    // Create start/stop event objects and variable for elapsed time in ms
+    hipEvent_t start, stop;
+    gpuErrorCheck( hipEventCreate(&start) );
+    gpuErrorCheck( hipEventCreate(&stop) );
+    float elapsed_time_ms;
+
     // Fill host array A with random numbers on host
     for(int i=0; i<(N+2*stencil_radius); i++)
     {
@@ -68,24 +76,32 @@ int main()
     double total_start, total_stop;
     total_start = omp_get_wtime();
 
-    // Start timer for CPU calculations
-    double cpu_compute_start, cpu_compute_stop;
-    cpu_compute_start = omp_get_wtime();
-
     // Copy data from host array A to device array d_A
     gpuErrorCheck( hipMemcpyAsync(d_A, A, bytes, hipMemcpyHostToDevice, 0) );
 
     // Set execution configuration parameters
     //      thr_per_blk: number of GPU threads per grid block
     //      blk_in_grid: number of blocks in grid
-    int thr_per_blk = block_size;
+    int thr_per_blk = threads_per_block;
     int blk_in_grid = ceil( float(N+2*stencil_radius) / thr_per_blk );
+
+    // Place start event into gpu stream
+    gpuErrorCheck( hipEventRecord(start, NULL) );
 
     // Launch kernel
     hipLaunchKernelGGL(average_array_elements, blk_in_grid, thr_per_blk, 0, 0, d_A, d_A_average);
 
+    // Place stop event into gpu stream and calculate elapsed time in ms
+    gpuErrorCheck( hipEventRecord(stop, NULL) );
+    gpuErrorCheck( hipEventSynchronize(stop) );
+    gpuErrorCheck( hipEventElapsedTime(&elapsed_time_ms, start, stop) );
+
     // Copy data from device array d_A_average to host array A_average_gpu
     gpuErrorCheck( hipMemcpyAsync(A_average_gpu, d_A_average, bytes, hipMemcpyDeviceToHost, 0) );
+
+    // Start timer for CPU calculations
+    double cpu_compute_start, cpu_compute_stop;
+    cpu_compute_start = omp_get_wtime();
 
     // Average values of array elements on the host - excluding halo
     #pragma omp parallel for default(shared)
@@ -121,7 +137,7 @@ int main()
             if( fabs(A_average_cpu[i] - A_average_gpu[i]) > tolerance )
             { 
                 printf("Error: value of A_average_gpu[%d] = %f instead of %f\n", i, A_average_gpu[i], A_average_cpu[i]);
-                exit(-1);
+                exit(1);
             }
         }
     }	
@@ -142,6 +158,7 @@ int main()
     printf("Threads Per Block            = %d\n", thr_per_blk);
     printf("Blocks In Grid               = %d\n", blk_in_grid);
     printf("Elapsed CPU Compute Time (s) = %f\n", cpu_compute_stop - cpu_compute_start);
+    printf("Elapsed GPU Compute Time (s) = %f\n", elapsed_time_ms / 1000);
     printf("Total Elapsed Time (s)       = %f\n", total_stop - total_start);
     printf("-------------------------------------\n\n");
 
