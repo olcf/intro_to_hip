@@ -1,0 +1,12 @@
+#!/bin/bash
+
+#BSUB -P PRJ123
+#BSUB -J pinned
+#BSUB -o pinned.%J
+#BSUB -nnodes 1
+#BSUB -W 10
+#BSUB -U HIPintro
+
+date
+
+jsrun -n1 -c1 -g1 -a1 ./average_array_elements_pinned
