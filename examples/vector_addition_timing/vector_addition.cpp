@@ -96,7 +96,7 @@ int main()
         if( fabs(C[i] - 3.0) > tolerance )
         { 
             printf("Error: value of C[%d] = %f instead of 3.0\n", i, C[i]);
-            exit(-1);
+            exit(1);
         }
     }	
 
