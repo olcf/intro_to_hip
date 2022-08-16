@@ -5,7 +5,6 @@
 #BSUB -o elements_squared_time.%J
 #BSUB -nnodes 1
 #BSUB -W 10
-#BSUB -U HIPintro
 
 date
 

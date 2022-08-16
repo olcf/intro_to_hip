@@ -5,7 +5,6 @@
 #BSUB -o pinned.%J
 #BSUB -nnodes 1
 #BSUB -W 10
-#BSUB -U HIPintro
 
 date
 

@@ -5,7 +5,6 @@
 #BSUB -o add_vectors.%J
 #BSUB -nnodes 1
 #BSUB -W 10
-#BSUB -U HIPintro
 
 date
 
